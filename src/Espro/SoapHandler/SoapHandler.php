@@ -65,6 +65,7 @@ class SoapHandler
             } catch (\SoapFault $sf) {
                 $errorString = $sf->getMessage() . "\n" . $this->soap->__getLastRequestHeaders() . "\n" . $this->soap->__getLastRequest() . "\n" . $this->soap->__getLastResponse();
 
+                /** @noinspection PhpUndefinedFieldInspection */
                 $sf = new \SoapFault(
                     $sf->faultcode,
                     $errorString,
@@ -154,12 +155,6 @@ class SoapHandler
         return $this->connectionErrorString;
     }
 
-    protected function handleResultAsError( $_errLvl, $_file, $_line )
-    {
-        $e = ExceptionLevel::getExceptionByLevel( $_errLvl, $_file, $_line );
-        self::errorHandler($e);
-    }
-
     protected function errorHandler( \Exception $e )
     {
         if ($this->config->getThrowExceptions()) {
@@ -173,5 +168,11 @@ class SoapHandler
             ->setMessage( ExceptionLevel::getMessage( $_errLevel ) )
             ->setResult( $_errLevel )
         ;
+    }
+
+    protected function handleResultAsError( $_errLvl, $_file, $_line )
+    {
+        $e = ExceptionLevel::getExceptionByLevel( $_errLvl, $_file, $_line );
+        self::errorHandler($e);
     }
 }
