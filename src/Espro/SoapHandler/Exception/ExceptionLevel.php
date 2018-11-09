@@ -10,6 +10,7 @@ class ExceptionLevel
     const ERRLVL_VALIDATION = 3;
     const ERRLVL_CALL = 4;
     const ERRLVL_URL_NOT_RESPONDING = 5;
+    const ERRLVL_SHORTHAND = 6;
 
     protected static $messages = [
         self::ERRLVL_URL_NOT_RESPONDING => "The base url %s insn't responding - HTTP Status Code: %s",
@@ -19,6 +20,7 @@ class ExceptionLevel
         self::ERRLVL_INTERNALSTRUCT => 'Response error: the expected response structure cannot be ',
         self::ERRLVL_VALIDATION => 'The expected response value is invalid',
         self::ERRLVL_CALL => 'Calling error: soap returned an error',
+        self::ERRLVL_SHORTHAND => "Arguments for shorthand method %s are invalid"
     ];
 
     public static function getMessage($_errorLevel)

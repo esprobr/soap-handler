@@ -1,6 +1,8 @@
 <?php
 namespace Espro\SoapHandler;
 
+use Espro\SoapHandler\Exception\InvalidShorthandArgumentsException;
+
 class Configuration
 {
     const INFO_DEBUG = 1;
@@ -90,7 +92,6 @@ class Configuration
     public function setMode( $_mode )
     {
         $this->mode = $_mode;
-
         return $this;
     }
 
@@ -128,14 +129,16 @@ class Configuration
         return $this->options;
     }
 
-    public function setOptions( $_options )
+    public function setOptions( array $_options = [] )
     {
         $this->options = $_options;
+        return $this;
     }
 
     public function setOption( $_key, $_value )
     {
         $this->options[ $_key ] = $_value;
+        return $this;
     }
 
 
@@ -174,5 +177,21 @@ class Configuration
     public function isModeDebug()
     {
         return $this->mode === self::INFO_DEBUG;
+    }
+
+    public function options()
+    {
+        if( func_num_args() == 0 ) {
+            return $this->options;
+        } else {
+            $args = func_get_args();
+            if(is_array($args[0])) {
+                return self::setOptions($args[0]);
+            } elseif(count($args) == 2) {
+                return self::setOption($args[0], $args[1]);
+            } else {
+                throw new InvalidShorthandArgumentsException(__METHOD__, __FILE__, __LINE__);
+            }
+        }
     }
 }
