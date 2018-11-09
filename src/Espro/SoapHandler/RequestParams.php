@@ -25,9 +25,9 @@ class RequestParams {
 	 */
 	protected $comparison;
 
-	public function __construct($_comparison) {
+	public function __construct($_comparison = null) {
         if(!is_callable($_comparison)) {
-            $this->comparison = function ($_status, $_response) {
+            $this->comparison = function ($_status) {
                 return $_status == 1;
             };
         }
