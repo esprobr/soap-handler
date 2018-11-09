@@ -1,0 +1,23 @@
+{
+  "name"  : "esprobr/soap-handler",
+  "description": "SOAP Handler",
+  "version" : "0.0.1",
+  "authors": [
+    {
+      "name": "Wesley Sousa",
+      "email": "wesleyyps@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=5.6.0",
+    "ext-soap": "*",
+
+    "symfony/http-foundation": "*",
+    "esprobr/utils": "dev-master"
+  },
+  "autoload": {
+    "psr-0": {
+      "Espro": "src/"
+    }
+  }
+}
