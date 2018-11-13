@@ -2,7 +2,10 @@
 namespace Espro\SoapHandler;
 
 use Espro\SoapHandler\Exception\BaseUrlNotRespondingException;
+use Espro\SoapHandler\Exception\CallException;
+use Espro\SoapHandler\Exception\ConnectionException;
 use Espro\SoapHandler\Exception\ExceptionLevel;
+use Espro\SoapHandler\Exception\SoapHandlerException;
 use Espro\Utils\ModelResult;
 use Espro\Utils\Url;
 
@@ -42,8 +45,13 @@ class SoapHandler
                 );
                 $this->connected = true;
             } catch ( \SoapFault $e ) {
+                $sf = new ConnectionException(
+                    self::soapFaultToString($e),
+                    __FILE__,
+                    __LINE__
+                );
                 self::setConnectionError( $e );
-                self::errorHandler( $e );
+                self::errorHandler( $sf );
             }
         } else {
             $e = new BaseUrlNotRespondingException( $this->config->getBaseUrl(), $exists->getMessage(), __FILE__, __LINE__);
@@ -63,13 +71,10 @@ class SoapHandler
             try {
                 $execucao = $this->soap->__soapCall( $_params->getMethod(), $_params->getArgs() );
             } catch (\SoapFault $sf) {
-                $errorString = $sf->getMessage() . "\n" . $this->soap->__getLastRequestHeaders() . "\n" . $this->soap->__getLastRequest() . "\n" . $this->soap->__getLastResponse();
-
-                /** @noinspection PhpUndefinedFieldInspection */
-                $sf = new \SoapFault(
-                    $sf->faultcode,
-                    $errorString,
-                    ""
+                $sf = new CallException(
+                    self::soapFaultToString($sf),
+                    __FILE__,
+                    __LINE__
                 );
                 self::fillReturnObject( $retorno, ExceptionLevel::ERRLVL_CALL );
                 self::errorHandler($sf);
@@ -174,5 +179,16 @@ class SoapHandler
     {
         $e = ExceptionLevel::getExceptionByLevel( $_errLvl, $_file, $_line );
         self::errorHandler($e);
+    }
+
+    protected function soapFaultToString(\SoapFault $_sf)
+    {
+        /** @noinspection PhpUndefinedFieldInspection */
+        return '[Code] ' . $_sf->faultcode .
+             "\n[Message] " . $_sf->getMessage() .
+             "\n[LastRequestHeaders] " . $this->soap->__getLastRequestHeaders() .
+             "\n[LastRequest] " . $this->soap->__getLastRequest() .
+             "\n[LastResponse] " . $this->soap->__getLastResponse()
+        ;
     }
 }
