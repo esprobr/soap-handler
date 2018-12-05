@@ -5,7 +5,6 @@ use Espro\SoapHandler\Exception\BaseUrlNotRespondingException;
 use Espro\SoapHandler\Exception\CallException;
 use Espro\SoapHandler\Exception\ConnectionException;
 use Espro\SoapHandler\Exception\ExceptionLevel;
-use Espro\SoapHandler\Exception\SoapHandlerException;
 use Espro\Utils\ModelResult;
 use Espro\Utils\Url;
 
@@ -31,6 +30,11 @@ class SoapHandler
      */
     protected $config;
 
+    /**
+     * SoapHandler constructor.
+     * @param Configuration $_config
+     * @throws \Exception
+     */
     public function __construct( Configuration $_config )
     {
         $this->config = $_config;
@@ -60,7 +64,11 @@ class SoapHandler
         }
     }
 
-
+    /**
+     * @param RequestParams $_params
+     * @return ModelResult
+     * @throws \Exception
+     */
     public function call( RequestParams $_params )
     {
         $retorno = new ModelResult(false, '');
@@ -160,6 +168,10 @@ class SoapHandler
         return $this->connectionErrorString;
     }
 
+    /**
+     * @param \Exception $e
+     * @throws \Exception
+     */
     protected function errorHandler( \Exception $e )
     {
         if ($this->config->getThrowExceptions()) {
@@ -175,6 +187,12 @@ class SoapHandler
         ;
     }
 
+    /**
+     * @param $_errLvl
+     * @param $_file
+     * @param $_line
+     * @throws \Exception
+     */
     protected function handleResultAsError( $_errLvl, $_file, $_line )
     {
         $e = ExceptionLevel::getExceptionByLevel( $_errLvl, $_file, $_line );
@@ -184,11 +202,13 @@ class SoapHandler
     protected function soapFaultToString(\SoapFault $_sf)
     {
         /** @noinspection PhpUndefinedFieldInspection */
-        return '[Code] ' . $_sf->faultcode .
-             "\n[Message] " . $_sf->getMessage() .
-             "\n[LastRequestHeaders] " . $this->soap->__getLastRequestHeaders() .
-             "\n[LastRequest] " . $this->soap->__getLastRequest() .
-             "\n[LastResponse] " . $this->soap->__getLastResponse()
-        ;
+        $ret = '[Code] ' . $_sf->faultcode .
+             "\n[Message] " . $_sf->getMessage();
+        if(!is_null($this->soap)) {
+            $ret .= "\n[LastRequestHeaders] " . $this->soap->__getLastRequestHeaders() .
+                    "\n[LastRequest] " . $this->soap->__getLastRequest() .
+                    "\n[LastResponse] " . $this->soap->__getLastResponse();
+        }
+        return $ret;
     }
 }
