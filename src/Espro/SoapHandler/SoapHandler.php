@@ -7,6 +7,8 @@ use Espro\SoapHandler\Exception\ConnectionException;
 use Espro\SoapHandler\Exception\ExceptionLevel;
 use Espro\Utils\ModelResult;
 use Espro\Utils\Url;
+use Monolog\Handler\StreamHandler;
+use Monolog\Logger;
 
 class SoapHandler
 {
@@ -29,6 +31,10 @@ class SoapHandler
      * @var Configuration
      */
     protected $config;
+    /**
+     * @var Logger
+     */
+    protected $logger = null;
 
     /**
      * SoapHandler constructor.
@@ -39,16 +45,59 @@ class SoapHandler
     {
         $this->config = $_config;
 
+        if( !is_null( $this->config->getLogConfiguration() ) ) {
+            $this->logger = new Logger( $this->config->getLogConfiguration()->getChannel() );
+            $this->logger->pushHandler(
+                new StreamHandler(
+                    $this->config->getLogConfiguration()->getPath(),
+                    $this->config->getLogConfiguration()->getLevel()
+                )
+            );
+        }
+
+        if( !is_null($this->logger) ) {
+            $this->logger->info("Checking if webservice's base url exists", [
+                'baseUrl' => $this->config->getBaseUrl(),
+                'timeout' => $this->config->getTimeout()
+            ]);
+        }
         $exists = Url::exists( $this->config->getBaseUrl(),  $this->config->getTimeout() );
 
         if ( $exists->getStatus() ) {
+            if( !is_null($this->logger) ) {
+                $this->logger->info("Webservice's base url is active", [
+                    'baseUrl' => $this->config->getBaseUrl(),
+                    'timeout' => $this->config->getTimeout()
+                ]);
+            }
+
             try {
+                if( !is_null($this->logger) ) {
+                    $this->logger->info("Trying to connect", [
+                        'url' => $this->config->getBaseUrl() . '/' . $this->config->getEndpoint(),
+                        'timeout' => $this->config->getTimeout(),
+                        'options' => $this->config->getOptions()
+                    ]);
+                }
                 $this->soap = new \SoapClient(
                     $this->config->getBaseUrl() . '/' . $this->config->getEndpoint(),
                     $this->config->getOptions()
                 );
                 $this->connected = true;
+                if( !is_null($this->logger) ) {
+                    $this->logger->info("Webservice connection successful", [
+                        'url' => $this->config->getBaseUrl() . '/' . $this->config->getEndpoint(),
+                        'timeout' => $this->config->getTimeout(),
+                        'options' => $this->config->getOptions()
+                    ]);
+                }
             } catch ( \SoapFault $e ) {
+                $this->logger->critical("Webservice connection error", [
+                    'url' => $this->config->getBaseUrl() . '/' . $this->config->getEndpoint(),
+                    'timeout' => $this->config->getTimeout(),
+                    'options' => $this->config->getOptions(),
+                    'details' => self::soapFaultToArray($e)
+                ]);
                 $sf = new ConnectionException(
                     self::soapFaultToString($e),
                     __FILE__,
@@ -58,6 +107,14 @@ class SoapHandler
                 self::errorHandler( $sf );
             }
         } else {
+            if( !is_null($this->logger) ) {
+                $this->logger->critical("Webservice's base url isn't responding", [
+                    'baseUrl' => $this->config->getBaseUrl(),
+                    'timeout' => $this->config->getTimeout(),
+                    'response' => $exists->getMessage()
+                ]);
+            }
+
             $e = new BaseUrlNotRespondingException( $this->config->getBaseUrl(), $exists->getMessage(), __FILE__, __LINE__);
             self::setConnectionError( $e );
             self::errorHandler( $e );
@@ -77,15 +134,42 @@ class SoapHandler
 
         if ( self::isConnected() ) {
             try {
+                if( !is_null($this->logger) ) {
+                    $this->logger->info("Trying to call method", [
+                        'url' => $this->config->getBaseUrl() . '/' . $this->config->getEndpoint(),
+                        'timeout' => $this->config->getTimeout(),
+                        'options' => $this->config->getOptions(),
+                        'method' => $_params->getMethod(),
+                        'args' => $_params->getArgs()
+                    ]);
+                }
                 $execucao = $this->soap->__soapCall( $_params->getMethod(), $_params->getArgs() );
+                if( !is_null($this->logger) && $execucao) {
+                    $this->logger->info("Method executed", [
+                        'url' => $this->config->getBaseUrl() . '/' . $this->config->getEndpoint(),
+                        'timeout' => $this->config->getTimeout(),
+                        'options' => $this->config->getOptions(),
+                        'method' => $_params->getMethod(),
+                        'args' => $_params->getArgs(),
+                        'response' => $execucao
+                    ]);
+                }
             } catch (\SoapFault $sf) {
+                $this->logger->critical("Method execution failed", [
+                    'url' => $this->config->getBaseUrl() . '/' . $this->config->getEndpoint(),
+                    'timeout' => $this->config->getTimeout(),
+                    'options' => $this->config->getOptions(),
+                    'method' => $_params->getMethod(),
+                    'args' => $_params->getArgs(),
+                    'response' => self::soapFaultToArray( $sf )
+                ]);
                 $sf = new CallException(
-                    self::soapFaultToString($sf),
+                    self::soapFaultToString( $sf ),
                     __FILE__,
                     __LINE__
                 );
                 self::fillReturnObject( $retorno, ExceptionLevel::ERRLVL_CALL );
-                self::errorHandler($sf);
+                self::errorHandler( $sf );
             }
         } else {
             self::fillReturnObject( $retorno, ExceptionLevel::ERRLVL_CON );
@@ -199,9 +283,8 @@ class SoapHandler
         self::errorHandler($e);
     }
 
-    protected function soapFaultToString(\SoapFault $_sf)
+    protected function soapFaultToString( \SoapFault $_sf )
     {
-        /** @noinspection PhpUndefinedFieldInspection */
         $ret = '[Code] ' . $_sf->faultcode .
              "\n[Message] " . $_sf->getMessage();
         if(!is_null($this->soap)) {
@@ -209,6 +292,22 @@ class SoapHandler
                     "\n[LastRequest] " . $this->soap->__getLastRequest() .
                     "\n[LastResponse] " . $this->soap->__getLastResponse();
         }
+        return $ret;
+    }
+
+    protected function soapFaultToArray( \SoapFault $_sf )
+    {
+        $ret = [
+            'code' => $_sf->faultcode,
+            'message' => $_sf->getMessage()
+        ];
+
+        if(!is_null($this->soap)) {
+            $ret['lastRequestHeaders'] = $this->soap->__getLastRequestHeaders();
+            $ret['lastRequest'] = $this->soap->__getLastRequest();
+            $ret['lastResponse'] = $this->soap->__getLastResponse();
+        }
+
         return $ret;
     }
 }

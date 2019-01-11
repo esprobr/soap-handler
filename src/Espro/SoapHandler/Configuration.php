@@ -33,11 +33,17 @@ class Configuration
      * @var array
      */
     protected $options = [];
+    /**
+     * @var LogConfiguration
+     */
+    protected $logConfiguration;
 
     public function __construct()
     {
         self::mode( self::INFO_SILENT );
+
         self::throwExceptions( false );
+
         self::timeout( 5 );
     }
 
@@ -179,19 +185,41 @@ class Configuration
         return $this->mode === self::INFO_DEBUG;
     }
 
+    /**
+     * @return array|Configuration
+     * @throws InvalidShorthandArgumentsException
+     */
     public function options()
     {
         if( func_num_args() == 0 ) {
             return $this->options;
         } else {
             $args = func_get_args();
-            if(is_array($args[0])) {
-                return self::setOptions($args[0]);
-            } elseif(count($args) == 2) {
-                return self::setOption($args[0], $args[1]);
+            if( is_array( $args[ 0 ] ) ) {
+                return self::setOptions( $args[ 0 ] );
+            } elseif( count( $args ) == 2 ) {
+                return self::setOption( $args[ 0 ], $args[ 1 ] );
             } else {
-                throw new InvalidShorthandArgumentsException(__METHOD__, __FILE__, __LINE__);
+                throw new InvalidShorthandArgumentsException( __METHOD__, __FILE__, __LINE__ );
             }
         }
+    }
+
+    /**
+     * @return LogConfiguration
+     */
+    public function getLogConfiguration()
+    {
+        return $this->logConfiguration;
+    }
+
+    /**
+     * @param LogConfiguration $_logConfig
+     * @return $this
+     */
+    public function setLogConfiguration( LogConfiguration $_logConfig )
+    {
+        $this->logConfiguration = $_logConfig;
+        return $this;
     }
 }
