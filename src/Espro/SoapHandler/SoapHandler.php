@@ -7,7 +7,7 @@ use Espro\SoapHandler\Exception\ConnectionException;
 use Espro\SoapHandler\Exception\ExceptionLevel;
 use Espro\Utils\ModelResult;
 use Espro\Utils\Url;
-use Monolog\Handler\StreamHandler;
+use Monolog\Handler\RotatingFileHandler;
 use Monolog\Logger;
 
 class SoapHandler
@@ -54,8 +54,9 @@ class SoapHandler
         if( !is_null( $this->config->getLogConfiguration() ) ) {
             $this->logger = new Logger( $this->config->getLogConfiguration()->getChannel() );
             $this->logger->pushHandler(
-                new StreamHandler(
+                new RotatingFileHandler(
                     $this->config->getLogConfiguration()->getPath(),
+                    0,
                     $this->config->getLogConfiguration()->getLevel()
                 )
             );
