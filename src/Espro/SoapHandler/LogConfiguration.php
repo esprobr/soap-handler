@@ -91,6 +91,11 @@ class LogConfiguration
         return $this->level;
     }
 
+    public function isLevel($_level)
+    {
+        return $_level == $this->level;
+    }
+
     public function getChannel()
     {
         return $this->channel;

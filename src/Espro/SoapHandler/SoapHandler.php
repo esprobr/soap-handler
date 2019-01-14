@@ -35,6 +35,10 @@ class SoapHandler
      * @var Logger
      */
     protected $logger = null;
+    /**
+     * @var string
+     */
+    protected $instanceId;
 
     /**
      * SoapHandler constructor.
@@ -44,6 +48,8 @@ class SoapHandler
     public function __construct( Configuration $_config )
     {
         $this->config = $_config;
+
+        $this->instanceId = md5( uniqid() );
 
         if( !is_null( $this->config->getLogConfiguration() ) ) {
             $this->logger = new Logger( $this->config->getLogConfiguration()->getChannel() );
@@ -55,28 +61,34 @@ class SoapHandler
             );
         }
 
-        if( !is_null($this->logger) ) {
-            $this->logger->info("Checking if webservice's base url exists", [
-                'baseUrl' => $this->config->getBaseUrl(),
-                'timeout' => $this->config->getTimeout()
-            ]);
+        if( !is_null( $this->logger ) ) {
+            $info = [
+                'instance' => $this->instanceId
+            ];
+            if( $this->config->getLogConfiguration()->isLevel( LogConfiguration::DEBUG ) ) {
+                $info['url'] = $this->config->getBaseUrl() . '/' . $this->config->getEndpoint();
+                $info['timeout'] = $this->config->getTimeout();
+                $info['options'] = $this->config->getOptions();
+            }
+
+            $this->logger->info(
+                "Checking if base url \"{$this->config->getBaseUrl()}\" exists",
+                $info
+            );
         }
         $exists = Url::exists( $this->config->getBaseUrl(),  $this->config->getTimeout() );
 
         if ( $exists->getStatus() ) {
             if( !is_null($this->logger) ) {
-                $this->logger->info("Webservice's base url is active", [
-                    'baseUrl' => $this->config->getBaseUrl(),
-                    'timeout' => $this->config->getTimeout()
+                $this->logger->info("Base url \"{$this->config->getBaseUrl()}\" is active", [
+                    'instance' => $this->instanceId
                 ]);
             }
 
             try {
                 if( !is_null($this->logger) ) {
-                    $this->logger->info("Trying to connect", [
-                        'url' => $this->config->getBaseUrl() . '/' . $this->config->getEndpoint(),
-                        'timeout' => $this->config->getTimeout(),
-                        'options' => $this->config->getOptions()
+                    $this->logger->info("Trying to connect to endpoint \"{$this->config->getBaseUrl()}/{$this->config->getEndpoint()}\"", [
+                        'instance' => $this->instanceId
                     ]);
                 }
                 $this->soap = new \SoapClient(
@@ -86,17 +98,13 @@ class SoapHandler
                 $this->connected = true;
                 if( !is_null($this->logger) ) {
                     $this->logger->info("Webservice connection successful", [
-                        'url' => $this->config->getBaseUrl() . '/' . $this->config->getEndpoint(),
-                        'timeout' => $this->config->getTimeout(),
-                        'options' => $this->config->getOptions()
+                        'instance' => $this->instanceId
                     ]);
                 }
             } catch ( \SoapFault $e ) {
                 $this->logger->critical("Webservice connection error", [
-                    'url' => $this->config->getBaseUrl() . '/' . $this->config->getEndpoint(),
-                    'timeout' => $this->config->getTimeout(),
-                    'options' => $this->config->getOptions(),
-                    'details' => self::soapFaultToArray($e)
+                    'instance' => $this->instanceId,
+                    'response' => self::soapFaultToArray( $e )
                 ]);
                 $sf = new ConnectionException(
                     self::soapFaultToString($e),
@@ -109,8 +117,7 @@ class SoapHandler
         } else {
             if( !is_null($this->logger) ) {
                 $this->logger->critical("Webservice's base url isn't responding", [
-                    'baseUrl' => $this->config->getBaseUrl(),
-                    'timeout' => $this->config->getTimeout(),
+                    'instance' => $this->instanceId,
                     'response' => $exists->getMessage()
                 ]);
             }
@@ -128,41 +135,50 @@ class SoapHandler
      */
     public function call( RequestParams $_params )
     {
+        $execId = md5( uniqid() );
+
         $retorno = new ModelResult(false, '');
 
         $execucao = null;
 
+        $info = [
+            'instance' => $this->instanceId,
+            'execId' => $execId
+        ];
+
         if ( self::isConnected() ) {
             try {
                 if( !is_null($this->logger) ) {
-                    $this->logger->info("Trying to call method", [
-                        'url' => $this->config->getBaseUrl() . '/' . $this->config->getEndpoint(),
-                        'timeout' => $this->config->getTimeout(),
-                        'options' => $this->config->getOptions(),
-                        'method' => $_params->getMethod(),
-                        'args' => $_params->getArgs()
-                    ]);
+                    $infoLog = $this->config->getLogConfiguration()->isLevel( LogConfiguration::DEBUG )
+                        ? array_merge($info, [
+                            'url' => $this->config->getBaseUrl() . '/' . $this->config->getEndpoint(),
+                            'timeout' => $this->config->getTimeout(),
+                            'options' => $this->config->getOptions(),
+                            'method' => $_params->getMethod(),
+                            'args' => $_params->getArgs()
+                        ])
+                        : [];
+                    $this->logger->info("Trying to call endpoints's \"{$this->config->getBaseUrl()}/{$this->config->getEndpoint()}\" method \"{$_params->getMethod()}\"", $infoLog);
                 }
                 $execucao = $this->soap->__soapCall( $_params->getMethod(), $_params->getArgs() );
                 if( !is_null($this->logger) && $execucao) {
-                    $this->logger->info("Method executed", [
-                        'url' => $this->config->getBaseUrl() . '/' . $this->config->getEndpoint(),
-                        'timeout' => $this->config->getTimeout(),
-                        'options' => $this->config->getOptions(),
-                        'method' => $_params->getMethod(),
-                        'args' => $_params->getArgs(),
-                        'response' => $execucao
-                    ]);
+                    $this->logger->info(
+                        "Method \"{$_params->getMethod()}\" executed",
+                        $this->config->getLogConfiguration()->isLevel( LogConfiguration::DEBUG )
+                            ? array_merge( $info, [
+                                'response' => $execucao
+                            ] )
+                            : $info
+                    );
+
                 }
             } catch (\SoapFault $sf) {
-                $this->logger->critical("Method execution failed", [
-                    'url' => $this->config->getBaseUrl() . '/' . $this->config->getEndpoint(),
-                    'timeout' => $this->config->getTimeout(),
-                    'options' => $this->config->getOptions(),
-                    'method' => $_params->getMethod(),
-                    'args' => $_params->getArgs(),
-                    'response' => self::soapFaultToArray( $sf )
-                ]);
+                $this->logger->critical(
+                    "Method execution failed",
+                    array_merge( $info, [
+                        'response' => self::soapFaultToArray( $sf )
+                    ] )
+                );
                 $sf = new CallException(
                     self::soapFaultToString( $sf ),
                     __FILE__,
