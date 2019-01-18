@@ -1,5 +1,6 @@
 {
   "name"  : "esprobr/soap-handler",
+  "license": "GPL-2.0-only",
   "description": "SOAP Handler",
   "version" : "0.0.1",
   "authors": [
