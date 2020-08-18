@@ -56,7 +56,7 @@ class SoapHandler
             $this->logger->pushHandler(
                 new RotatingFileHandler(
                     $this->config->getLogConfiguration()->getPath(),
-                    0,
+                    $this->config->getLogConfiguration()->getMaxFiles(),
                     $this->config->getLogConfiguration()->getLevel()
                 )
             );

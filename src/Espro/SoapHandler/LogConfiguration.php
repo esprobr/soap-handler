@@ -60,21 +60,28 @@ class LogConfiguration
      * @var string
      */
     protected $path;
+    /**
+     * @var int
+     */
+    protected $maxFiles = 0;
 
     /**
      * LogConfiguration constructor.
      * @param int $_logLevel
      * @param string $_logPath
      * @param string $_logChannel
+     * @param int $_maxFiles
      * @throws ValidationException
      */
-    public function __construct($_logLevel, $_logPath, $_logChannel = null)
+    public function __construct($_logLevel, $_logPath, $_logChannel = null, $_maxFiles = 0)
     {
         Validator::between(self::DEBUG, self::EMERGENCY)->setName('LogLevel')->assert($_logLevel);
         Validator::file()->setName('LogPath')->assert($_logPath);
+        Validator::intVal()->min(0)->assert($_maxFiles);
 
         $this->level = $_logLevel;
         $this->path = $_logPath;
+        $this->maxFiles = $_maxFiles;
 
         if( !is_null($_logChannel) && trim($_logChannel) != '' ) {
             $this->channel = $_logChannel;
@@ -99,5 +106,10 @@ class LogConfiguration
     public function getChannel()
     {
         return $this->channel;
+    }
+
+    public function getMaxFiles()
+    {
+        return $this->maxFiles;
     }
 }
